@@ -1,33 +1,63 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const app = express();
 
-app.use(cors());
+// ---------------------------
+// CONFIGURACIONES
+// ---------------------------
+const PORT = process.env.PORT || 3000;
+const FRONTEND_URL = "https://frontend-5max.onrender.com";
+
+// Middleware seguridad
+app.use(helmet());
+
+// Middleware CORS
+app.use(cors({ origin: FRONTEND_URL }));
+
+// Middleware para parsear JSON
 app.use(express.json());
 
-// Logger básico
+// Limite de peticiones (5 por segundo por IP)
+const limiter = rateLimit({
+  windowMs: 1000,
+  max: 5,
+  message: { success: false, message: "Demasiadas solicitudes. Intenta más tarde." }
+});
+app.use(limiter);
+
+// Logger mejorado
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const time = new Date().toLocaleString();
+  console.log(`\x1b[36m[${time}]\x1b[0m \x1b[33m${req.method}\x1b[0m ${req.url}`);
   next();
 });
 
+// ---------------------------
+// RUTAS
+// ---------------------------
+
 // Ruta raíz
 app.get("/", (req, res) => {
-  res.json({ message: "API EduMultiPro conectada exitosamente 🎉" });
+  res.json({ success: true, message: "API EduMultiPro conectada exitosamente 🎉" });
 });
 
 // Ruta status
 app.get("/status", (req, res) => {
-  res.json({ status: "ok", timestamp: Date.now() });
+  res.json({ success: true, data: { status: "ok", timestamp: Date.now() } });
 });
 
-// Ruta info
+// Ruta info de EduMultiPro
 app.get("/info", (req, res) => {
   res.json({
-    name: "EduMultiPro",
-    version: "1.0.0",
-    description: "API oficial para la plataforma EduMultiPro",
-    author: "Tu Nombre o Equipo",
+    success: true,
+    data: {
+      name: "EduMultiPro",
+      version: "1.0.0",
+      description: "API oficial para la plataforma EduMultiPro",
+      author: "Tu Nombre o Equipo",
+    },
   });
 });
 
@@ -39,37 +69,44 @@ const usuarios = [
 
 // Listar usuarios
 app.get("/users", (req, res) => {
-  res.json(usuarios);
+  res.json({ success: true, data: usuarios });
 });
 
-// Agregar usuario (POST)
+// Crear usuario
 app.post("/users", (req, res) => {
   const { nombre, email } = req.body;
   if (!nombre || !email) {
-    return res.status(400).json({ error: "Faltan campos: nombre y email son requeridos." });
+    return res.status(400).json({
+      success: false,
+      message: "Faltan campos: nombre y email son requeridos."
+    });
   }
-  const nuevoUsuario = {
-    id: usuarios.length + 1,
-    nombre,
-    email,
-  };
+
+  const nuevoUsuario = { id: usuarios.length + 1, nombre, email };
   usuarios.push(nuevoUsuario);
-  res.status(201).json(nuevoUsuario);
+
+  res.status(201).json({ success: true, data: nuevoUsuario, message: "Usuario creado correctamente ✅" });
 });
 
-// Manejo de rutas no encontradas (404)
+// ---------------------------
+// MANEJO DE ERRORES
+// ---------------------------
+
+// Rutas no encontradas
 app.use((req, res) => {
-  res.status(404).json({ error: "Ruta no encontrada" });
+  res.status(404).json({ success: false, message: "Ruta no encontrada" });
 });
 
-// Manejo de errores generales
+// Errores generales
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: "Error interno del servidor" });
+  res.status(500).json({ success: false, message: "Error interno del servidor" });
 });
 
-// Puerto
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Servidor EduMultiPro funcionando en puerto ${port}`);
+// ---------------------------
+// INICIO DEL SERVIDOR
+// ---------------------------
+app.listen(PORT, () => {
+  console.log(`\x1b[32mServidor EduMultiPro funcionando en puerto ${PORT} 🚀\x1b[0m`);
 });
+
